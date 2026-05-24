@@ -214,44 +214,58 @@
       </div>
     </section>
 
-    <!-- ===== STEP 4: Dynamic Follow-Up Form ===== -->
+    <!-- ===== STEP 4: Interactive Interview ===== -->
     <section class="step-section" id="step4" data-step="4">
-      <div class="step-content">
-        <div class="step-intro">
-          <h2>A Few More Details</h2>
-          <p id="followUpSubtitle">Based on your report, we have a few targeted questions to help investigators.</p>
+      <div class="step-content" style="height: 100%; display: flex; flex-direction: column;">
+        <div class="step-intro" style="flex-shrink: 0;">
+          <h2>Detective Follow-up</h2>
+          <p id="followUpSubtitle">We need a few more details. Please answer the questions below.</p>
         </div>
 
-        <!-- AI-detected categories badge row -->
-        <div class="category-badges" id="categoryBadges"></div>
+        <!-- Chat Container -->
+        <div class="chat-container glass-card" id="chatContainer">
+          <div class="chat-messages" id="chatMessages">
+            <!-- Messages will be appended here -->
+          </div>
+          
+          <div class="chat-input-area">
+            <div class="textarea-wrapper" style="flex: 1; margin: 0;">
+              <textarea 
+                id="chatInput" 
+                placeholder="Type your answer here..." 
+                rows="1"
+                style="min-height: 44px; padding-right: 40px; padding-bottom: 12px; resize: none;"
+              ></textarea>
+              <button class="btn-mic chat-mic" id="btnChatMic" title="Dictate answer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="1" width="6" height="12" rx="3"/>
+                  <path d="M19 10v1a7 7 0 01-14 0v-1"/>
+                  <line x1="12" y1="18" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+                <div class="mic-pulse"></div>
+              </button>
+            </div>
+            <button class="btn btn-primary" id="btnSendChat" style="padding: 12px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0;">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
 
-        <!-- Dynamic form fields go here -->
-        <div class="dynamic-form glass-card" id="dynamicForm"></div>
-
-        <!-- Tip preview -->
-        <details class="tip-preview" id="tipPreview">
-          <summary>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-            Preview Your Tip
-          </summary>
-          <pre id="tipPreviewContent"></pre>
-        </details>
-
-        <div class="step-actions">
+        <div class="step-actions" style="flex-shrink: 0;">
           <button class="btn btn-ghost" id="btnBack3">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
             Back
           </button>
-          <button class="btn btn-success btn-lg" id="btnSubmitTip">
+          <button class="btn btn-success btn-lg" id="btnSubmitTip" style="display: none;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
             </svg>
-            Submit Tip Securely
+            Submit Final Tip
           </button>
         </div>
       </div>

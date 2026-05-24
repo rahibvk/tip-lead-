@@ -30,8 +30,7 @@
       coordinates: null,
       rawNarrative: '',
       analysisResult: null,
-      followUpQuestions: [],
-      dynamicAnswers: {},
+      interviewTranscript: [],
       timestamp: null,
     };
   }
@@ -219,8 +218,8 @@
     tipState.rawNarrative = text;
     tipState.timestamp = new Date().toISOString();
 
-    goToStep(STATES.ANALYZING);
-    await analyzeNarrative(text);
+    goToStep(STATES.FOLLOW_UP);
+    startInterview(text);
   });
 
   // ==========================================
@@ -310,189 +309,138 @@
   });
 
   // ==========================================
-  // STEP 3: SMART DISPATCHER (AI Analysis)
+  // STEP 4: INTERACTIVE INTERVIEW
   // ==========================================
 
-  async function analyzeNarrative(text) {
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const btnSendChat = document.getElementById('btnSendChat');
+  const btnSubmitTip = document.getElementById('btnSubmitTip');
+  let conversationHistory = [];
+  let isInterviewing = false;
+  let turnCount = 0;
+  const MAX_TURNS = 10;
+
+  async function startInterview(text) {
+    conversationHistory = [
+      { role: 'user', content: text }
+    ];
+    
+    // Clear chat
+    chatMessages.innerHTML = '';
+    btnSubmitTip.style.display = 'none';
+    chatInput.disabled = false;
+    btnSendChat.disabled = false;
+    chatInput.value = '';
+    chatInput.placeholder = "Type your answer here...";
+    isInterviewing = true;
+    turnCount = 0;
+
+    await fetchNextQuestion();
+  }
+
+  async function fetchNextQuestion() {
+    showTypingIndicator();
+    
     try {
-      const response = await fetch('/api/analyze', {
+      const response = await fetch('/api/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawNarrative: text }),
+        body: JSON.stringify({ messages: conversationHistory }),
       });
 
-      if (!response.ok) {
-        throw new Error('Analysis failed: ' + response.statusText);
-      }
+      if (!response.ok) throw new Error('Interview failed');
 
       const result = await response.json();
-      tipState.analysisResult = result;
-      tipState.followUpQuestions = result.followUpQuestions || [];
+      removeTypingIndicator();
 
-      renderFollowUpForm(result);
-      goToStep(STATES.FOLLOW_UP);
+      if (result.status === 'complete' || turnCount >= MAX_TURNS) {
+        endInterview(result);
+      } else if (result.status === 'continue' && result.question) {
+        appendMessage('ai', result.question);
+        conversationHistory.push({ role: 'assistant', content: result.question });
+        turnCount++;
+        setTimeout(() => chatInput.focus(), 100);
+      }
     } catch (err) {
-      console.error('Analysis error:', err);
-      showErrorToast('Analysis failed. Using basic analysis instead.');
-
-      // If the proxy is unreachable, use a super-basic local fallback
-      const fallback = clientSideFallback(text);
-      tipState.analysisResult = fallback;
-      tipState.followUpQuestions = fallback.followUpQuestions;
-
-      renderFollowUpForm(fallback);
-      goToStep(STATES.FOLLOW_UP);
+      console.error(err);
+      removeTypingIndicator();
+      showErrorToast('Failed to get next question. Please try again or submit now.');
+      endInterview({ status: 'complete', summary: 'Interview interrupted due to error.', categories: ['general'] });
     }
   }
 
-  // Client-side emergency fallback (if server is totally down)
-  function clientSideFallback(text) {
-    const lower = text.toLowerCase();
-    const categories = [];
-    const questions = [];
-
-    const vehicleWords = ['car', 'bike', 'motorcycle', 'scooter', 'auto', 'bus', 'truck', 'van', 'swift', 'innova', 'bolero', 'vehicle', 'driving'];
-    const personWords = ['man', 'woman', 'guy', 'person', 'boy', 'girl', 'suspect', 'someone', 'individual', 'people', 'group'];
-
-    if (vehicleWords.some(w => lower.includes(w))) {
-      categories.push('vehicle');
-      questions.push({ id: 'licensePlate', label: 'Do you remember the license plate number?', placeholder: 'e.g., KL-07-AX-1234', type: 'text' });
-      questions.push({ id: 'vehicleColor', label: 'What color was the vehicle?', placeholder: 'e.g., Red, Black, White', type: 'text' });
-    }
-
-    if (personWords.some(w => lower.includes(w))) {
-      categories.push('person');
-      questions.push({ id: 'suspectDescription', label: 'Can you describe the person\'s appearance?', placeholder: 'e.g., Tall, wearing blue shirt', type: 'textarea' });
-    }
-
-    if (!lower.match(/(morning|afternoon|evening|night|today|yesterday|\d{1,2}:\d{2}|am|pm)/)) {
-      questions.push({ id: 'timeOfIncident', label: 'When did this happen?', placeholder: 'e.g., Today around 3 PM', type: 'text' });
-    }
-
-    if (categories.length === 0) categories.push('general');
-
-    return {
-      categories,
-      summary: 'Analyzed locally.',
-      followUpQuestions: questions.slice(0, 4),
-    };
+  function appendMessage(sender, text) {
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${sender}`;
+    bubble.textContent = text;
+    chatMessages.appendChild(bubble);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
-  // ==========================================
-  // STEP 4: DYNAMIC FORM RENDERER
-  // ==========================================
+  function showTypingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'typing-indicator';
+    div.id = 'typingIndicator';
+    div.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    chatInput.disabled = true;
+    btnSendChat.disabled = true;
+  }
 
-  function renderFollowUpForm(result) {
-    // Render category badges
-    const badgeContainer = document.getElementById('categoryBadges');
-    badgeContainer.innerHTML = '';
-    if (result.categories && result.categories.length > 0) {
-      result.categories.forEach(cat => {
-        const badge = document.createElement('span');
-        badge.className = 'category-badge ' + cat;
-        badge.textContent = cat.replace(/_/g, ' ');
-        badgeContainer.appendChild(badge);
-      });
+  function removeTypingIndicator() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+    
+    if (isInterviewing) {
+      chatInput.disabled = false;
+      btnSendChat.disabled = false;
     }
+  }
 
-    // Update subtitle
-    const subtitle = document.getElementById('followUpSubtitle');
-    if (result.summary) {
-      subtitle.textContent = result.summary + ' Please fill in any additional details below.';
+  function endInterview(result) {
+    isInterviewing = false;
+    chatInput.disabled = true;
+    btnSendChat.disabled = true;
+    chatInput.placeholder = "Interview complete.";
+    btnSubmitTip.style.display = 'inline-flex';
+    
+    tipState.analysisResult = result;
+    
+    appendMessage('ai', "Thank you. I have all the information I need. You can now submit the tip.");
+    
+    // Save transcript (skip the first message which is the raw narrative)
+    tipState.interviewTranscript = conversationHistory.slice(1);
+  }
+
+  btnSendChat.addEventListener('click', () => {
+    if (!isInterviewing) return;
+    const answer = chatInput.value.trim();
+    if (!answer) return;
+
+    appendMessage('user', answer);
+    conversationHistory.push({ role: 'user', content: answer });
+    chatInput.value = '';
+    
+    fetchNextQuestion();
+  });
+
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      btnSendChat.click();
     }
+  });
 
-    // Render form fields
-    const formContainer = document.getElementById('dynamicForm');
-    formContainer.innerHTML = '';
-
-    const questions = result.followUpQuestions || [];
-
-    if (questions.length === 0) {
-      formContainer.innerHTML = `
-        <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
-          <p>Your report was very detailed — no additional questions needed!</p>
-        </div>
-      `;
-      return;
-    }
-
-    questions.forEach(q => {
-      const field = document.createElement('div');
-      field.className = 'form-field';
-
-      const label = document.createElement('label');
-      label.setAttribute('for', 'field-' + q.id);
-      label.textContent = q.label;
-      field.appendChild(label);
-
-      let input;
-
-      if (q.type === 'select' && q.options && q.options.length > 0) {
-        input = document.createElement('select');
-        input.id = 'field-' + q.id;
-        const defaultOpt = document.createElement('option');
-        defaultOpt.value = '';
-        defaultOpt.textContent = 'Select...';
-        input.appendChild(defaultOpt);
-        q.options.forEach(opt => {
-          const option = document.createElement('option');
-          option.value = opt;
-          option.textContent = opt;
-          input.appendChild(option);
-        });
-      } else if (q.type === 'textarea') {
-        input = document.createElement('textarea');
-        input.id = 'field-' + q.id;
-        input.placeholder = q.placeholder || '';
-        input.rows = 3;
-      } else {
-        input = document.createElement('input');
-        input.type = 'text';
-        input.id = 'field-' + q.id;
-        input.placeholder = q.placeholder || '';
-      }
-
-      input.dataset.questionId = q.id;
-      input.className = 'dynamic-input';
-      field.appendChild(input);
-      formContainer.appendChild(field);
+  // Connect chat mic
+  const btnChatMic = document.getElementById('btnChatMic');
+  if (btnChatMic && window.SpeechRecognition || window.webkitSpeechRecognition) {
+    btnChatMic.addEventListener('click', () => {
+        // We can reuse the recognition instance or just simplify for now
+        showErrorToast('Chat dictation coming soon. Please type your answer.');
     });
-
-    // Update tip preview
-    updateTipPreview();
-
-    // Listen for changes to update preview
-    formContainer.querySelectorAll('.dynamic-input').forEach(input => {
-      input.addEventListener('input', updateTipPreview);
-      input.addEventListener('change', updateTipPreview);
-    });
-  }
-
-  function collectDynamicAnswers() {
-    const answers = {};
-    document.querySelectorAll('.dynamic-input').forEach(input => {
-      const val = input.value.trim();
-      if (val) {
-        answers[input.dataset.questionId] = val;
-      }
-    });
-    return answers;
-  }
-
-  function updateTipPreview() {
-    const payload = buildPayload();
-    const previewEl = document.getElementById('tipPreviewContent');
-    previewEl.textContent = JSON.stringify(payload, null, 2);
-  }
-
-  function buildPayload() {
-    return {
-      coordinates: tipState.coordinates,
-      rawNarrative: tipState.rawNarrative,
-      categories: tipState.analysisResult?.categories || [],
-      dynamicAnswers: collectDynamicAnswers(),
-      timestamp: tipState.timestamp,
-    };
   }
 
   // Back button on Step 4
@@ -505,8 +453,13 @@
   // ==========================================
 
   document.getElementById('btnSubmitTip').addEventListener('click', async () => {
-    const payload = buildPayload();
-    tipState.dynamicAnswers = payload.dynamicAnswers;
+    const payload = {
+      coordinates: tipState.coordinates,
+      rawNarrative: tipState.rawNarrative,
+      categories: tipState.analysisResult?.categories || [],
+      interviewTranscript: tipState.interviewTranscript,
+      timestamp: tipState.timestamp,
+    };
 
     // Show submitting overlay
     const overlay = document.createElement('div');
