@@ -2,13 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const OpenAI = require('openai');
 const path = require('path');
+const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
+const ngeohash = require('ngeohash');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const PIPELINE_URL = process.env.PIPELINE_URL || 'http://localhost:5000';
 
 // --- Middleware ---
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/dashboard', express.static(path.join(__dirname, 'dashboard')));
 
 // --- OpenAI Client ---
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -72,42 +77,120 @@ If you have enough information to conclude the interview, return:
 });
 
 // --- POST /api/submit ---
-// Forwards the final tip payload to the configured endpoint, or logs it.
+// Processes the final tip payload, enriches it, and forwards to the Python pipeline.
 app.post('/api/submit', async (req, res) => {
   const tipPayload = req.body;
-  const endpoint = process.env.SUBMIT_ENDPOINT;
 
-  console.log('\n========== TIP RECEIVED ==========');
-  console.log(JSON.stringify(tipPayload, null, 2));
-  console.log('==================================\n');
-
-  if (endpoint) {
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tipPayload)
-      });
-      const data = await response.json().catch(() => ({}));
-      return res.json({ success: true, forwarded: true, response: data });
-    } catch (err) {
-      console.error('Failed to forward tip:', err.message);
-      return res.status(502).json({ success: false, error: 'Failed to forward tip to endpoint.' });
-    }
+  // Generate unique identifiers
+  const tip_id = uuidv4();
+  
+  // Anonymous device hash from request headers (no IP stored directly)
+  const rawFingerprint = (req.headers['user-agent'] || '') + (req.ip || '');
+  const device_hash = crypto.createHash('sha256').update(rawFingerprint).digest('hex');
+  
+  // Geohash from coordinates (precision 7 ≈ ~150m accuracy)
+  let geohash = null;
+  if (tipPayload.coordinates && tipPayload.coordinates.lat && tipPayload.coordinates.lng) {
+    geohash = ngeohash.encode(tipPayload.coordinates.lat, tipPayload.coordinates.lng, 7);
   }
 
-  // No endpoint configured — just acknowledge
-  return res.json({ success: true, forwarded: false, message: 'Tip logged on server. No SUBMIT_ENDPOINT configured.' });
+  // Build enriched payload for the pipeline
+  const enrichedPayload = {
+    tip_id,
+    device_hash,
+    geohash,
+    coordinates: tipPayload.coordinates,
+    rawNarrative: tipPayload.rawNarrative,
+    categories: tipPayload.categories || [],
+    interviewTranscript: tipPayload.interviewTranscript || [],
+    images: tipPayload.images || [],
+    timestamp: tipPayload.timestamp || new Date().toISOString(),
+  };
+
+  console.log('\n========== TIP RECEIVED ==========');
+  console.log(`  Tip ID:      ${tip_id}`);
+  console.log(`  Device Hash: ${device_hash.substring(0, 12)}...`);
+  console.log(`  Geohash:     ${geohash}`);
+  console.log(`  Narrative:   ${(enrichedPayload.rawNarrative || '').substring(0, 80)}...`);
+  console.log(`  Images:      ${enrichedPayload.images.length}`);
+  console.log(`  Transcript:  ${enrichedPayload.interviewTranscript.length} messages`);
+  console.log('==================================\n');
+
+  // Forward to Python AI Pipeline
+  try {
+    const pipelineResponse = await fetch(`${PIPELINE_URL}/process-tip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(enrichedPayload),
+    });
+
+    if (pipelineResponse.ok) {
+      const pipelineResult = await pipelineResponse.json();
+      console.log('[Pipeline] Result:', pipelineResult);
+      return res.json({ success: true, tip_id, pipeline: pipelineResult });
+    } else {
+      console.error('[Pipeline] Error:', pipelineResponse.status, pipelineResponse.statusText);
+      // Still acknowledge the tip — it's logged on the server
+      return res.json({ success: true, tip_id, pipeline: { status: 'error', message: 'Pipeline returned error but tip is saved.' } });
+    }
+  } catch (err) {
+    console.error('[Pipeline] Unreachable:', err.message);
+    // Pipeline is down — still acknowledge the tip
+    return res.json({ success: true, tip_id, pipeline: { status: 'offline', message: 'AI Pipeline is offline. Tip saved for manual processing.' } });
+  }
+});
+
+// --- DASHBOARD API ---
+
+// GET /api/dashboard/alerts - Recent chain discovery alerts
+app.get('/api/dashboard/alerts', async (req, res) => {
+  try {
+    const response = await fetch(`${PIPELINE_URL}/alerts`);
+    if (response.ok) {
+      const alerts = await response.json();
+      return res.json(alerts);
+    }
+    return res.json([]);
+  } catch (err) {
+    return res.json([]);
+  }
+});
+
+// GET /api/dashboard/graph/:tipId - Full graph for a tip
+app.get('/api/dashboard/graph/:tipId', async (req, res) => {
+  try {
+    const response = await fetch(`${PIPELINE_URL}/graph/${req.params.tipId}`);
+    if (response.ok) {
+      const graph = await response.json();
+      return res.json(graph);
+    }
+    return res.json({ nodes: [], edges: [] });
+  } catch (err) {
+    return res.json({ nodes: [], edges: [] });
+  }
+});
+
+// GET /api/dashboard/stats - Aggregate stats
+app.get('/api/dashboard/stats', async (req, res) => {
+  try {
+    const response = await fetch(`${PIPELINE_URL}/stats`);
+    if (response.ok) {
+      const stats = await response.json();
+      return res.json(stats);
+    }
+    return res.json({ total_tips: 0, total_entities: 0, active_chains: 0 });
+  } catch (err) {
+    return res.json({ total_tips: 0, total_entities: 0, active_chains: 0 });
+  }
 });
 
 // --- Start Server ---
 app.listen(PORT, () => {
   console.log(`\n🛡️  Gov-Ker Tip Server running at http://localhost:${PORT}`);
+  console.log(`📊  Dashboard at http://localhost:${PORT}/dashboard`);
+  console.log(`🔗  Pipeline target: ${PIPELINE_URL}`);
   if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-openai-api-key-here') {
     console.log('⚠️  Warning: OPENAI_API_KEY not set. Will use local fallback analysis.');
-  }
-  if (!process.env.SUBMIT_ENDPOINT) {
-    console.log('ℹ️  No SUBMIT_ENDPOINT configured. Tips will be logged to console.');
   }
   console.log('');
 });

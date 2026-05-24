@@ -31,6 +31,7 @@
       rawNarrative: '',
       analysisResult: null,
       interviewTranscript: [],
+      images: [],
       timestamp: null,
     };
   }
@@ -43,6 +44,11 @@
     if (textarea) textarea.value = '';
     const dynamicForm = document.getElementById('dynamicForm');
     if (dynamicForm) dynamicForm.innerHTML = '';
+    // Clear photo gallery
+    const gallery = document.getElementById('photoGallery');
+    if (gallery) gallery.innerHTML = '';
+    const photoCount = document.getElementById('photoCount');
+    if (photoCount) photoCount.textContent = '';
     goToStep(STATES.LOCATION);
     console.log('[Security] State wiped from memory.');
   }
@@ -309,6 +315,86 @@
   });
 
   // ==========================================
+  // PHOTO UPLOAD
+  // ==========================================
+
+  const MAX_PHOTOS = 5;
+  const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10 MB
+  const photoInput = document.getElementById('photoInput');
+  const photoGallery = document.getElementById('photoGallery');
+  const photoCountEl = document.getElementById('photoCount');
+
+  document.getElementById('btnAttachPhoto').addEventListener('click', () => {
+    if (tipState.images.length >= MAX_PHOTOS) {
+      showErrorToast(`Maximum ${MAX_PHOTOS} photos allowed.`);
+      return;
+    }
+    photoInput.click();
+  });
+
+  photoInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    const remaining = MAX_PHOTOS - tipState.images.length;
+    const toProcess = files.slice(0, remaining);
+
+    toProcess.forEach(file => {
+      if (file.size > MAX_PHOTO_SIZE) {
+        showErrorToast(`"${file.name}" exceeds 10 MB limit.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const base64 = ev.target.result; // data:image/...;base64,...
+        tipState.images.push(base64);
+        renderPhotoThumbnail(base64, tipState.images.length - 1);
+        updatePhotoCount();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input so re-selecting the same file works
+    photoInput.value = '';
+  });
+
+  function renderPhotoThumbnail(base64, index) {
+    const thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    thumb.dataset.index = index;
+
+    const img = document.createElement('img');
+    img.src = base64;
+    img.alt = 'Evidence photo ' + (index + 1);
+    thumb.appendChild(img);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'photo-thumb-remove';
+    removeBtn.innerHTML = '✕';
+    removeBtn.title = 'Remove photo';
+    removeBtn.addEventListener('click', () => {
+      tipState.images.splice(index, 1);
+      rebuildPhotoGallery();
+    });
+    thumb.appendChild(removeBtn);
+
+    photoGallery.appendChild(thumb);
+  }
+
+  function rebuildPhotoGallery() {
+    photoGallery.innerHTML = '';
+    tipState.images.forEach((b64, i) => renderPhotoThumbnail(b64, i));
+    updatePhotoCount();
+  }
+
+  function updatePhotoCount() {
+    if (tipState.images.length > 0) {
+      photoCountEl.textContent = `(${tipState.images.length}/${MAX_PHOTOS})`;
+    } else {
+      photoCountEl.textContent = '';
+    }
+  }
+
+  // ==========================================
   // STEP 4: INTERACTIVE INTERVIEW
   // ==========================================
 
@@ -458,6 +544,7 @@
       rawNarrative: tipState.rawNarrative,
       categories: tipState.analysisResult?.categories || [],
       interviewTranscript: tipState.interviewTranscript,
+      images: tipState.images,
       timestamp: tipState.timestamp,
     };
 

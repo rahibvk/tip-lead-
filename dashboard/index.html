@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gov-Ker Intelligence Dashboard</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=SF+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Vis.js for Network Graphs -->
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+  <!-- Background Layer -->
+  <div class="bg-grid"></div>
+
+  <div class="dashboard-layout">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-shield">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Gov-Ker</h1>
+          <span class="subtitle">Intelligence Engine</span>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Tips</div>
+          <div class="stat-value" id="statTips">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Entities Mapped</div>
+          <div class="stat-value" id="statEntities">--</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-header">
+          <h2>Active Chains</h2>
+          <span class="badge" id="alertCount">0</span>
+        </div>
+        
+        <div class="alert-list" id="alertList">
+          <!-- Alerts will be injected here -->
+          <div class="loading-pulse">Searching graph for cross-device links...</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="view-controls">
+          <h2>Network Visualization</h2>
+          <span class="status-indicator">
+            <span class="status-dot"></span> Live Sync
+          </span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-outline" id="btnRefresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+            Refresh Data
+          </button>
+        </div>
+      </header>
+
+      <!-- Graph Container -->
+      <div class="graph-container">
+        <div id="networkGraph" class="network-graph"></div>
+        
+        <!-- Node Detail Panel (Hidden by default) -->
+        <div class="detail-panel" id="detailPanel">
+          <div class="detail-header">
+            <h3 id="detailTitle">Node Details</h3>
+            <button class="btn-close" id="btnCloseDetail">✕</button>
+          </div>
+          <div class="detail-content" id="detailContent">
+            <!-- Dynamic content -->
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

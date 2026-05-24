@@ -1296,3 +1296,84 @@ body {
 
 .typing-dot:nth-child(1) { animation-delay: -0.32s; }
 .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+/* --- Button Outline Variant --- */
+.btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-active);
+}
+
+.btn-outline:hover {
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+/* --- Photo Upload (Step 2) --- */
+.photo-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.photo-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding-left: 2px;
+}
+
+.photo-count {
+  font-size: 0.75rem;
+  color: var(--accent-green);
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.photo-preview-gallery {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  min-height: 0;
+}
+
+.photo-thumb {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  animation: bubbleFadeIn var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-thumb-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(239, 68, 68, 0.85);
+  color: white;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+
+.photo-thumb:hover .photo-thumb-remove {
+  opacity: 1;
+}
