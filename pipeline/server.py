@@ -12,6 +12,7 @@ from resolver import resolve_entities, get_existing_labels
 from scorer import score_relationships
 from injector import inject_to_neo4j
 from chain_discovery import run_chain_discovery, get_graph_for_tip, get_system_stats
+from chain_analyst import generate_chain_report, chat_with_lead
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
@@ -91,7 +92,9 @@ def get_alerts():
     """Run chain discovery and return alerts."""
     if not neo4j_driver:
         return jsonify([])
+    print("[Flask] Incoming request to /alerts")
     alerts = run_chain_discovery(neo4j_driver)
+    print(f"[Flask] /alerts returning {len(alerts)} chains.")
     return jsonify(alerts)
 
 
@@ -109,12 +112,59 @@ def get_stats():
     """Return aggregate system stats."""
     if not neo4j_driver:
          return jsonify({"total_tips": 0, "total_entities": 0, "active_chains": 0})
+    print("[Flask] Incoming request to /stats")
     stats = get_system_stats(neo4j_driver)
     # Get active chains count dynamically
     alerts = run_chain_discovery(neo4j_driver)
     stats["active_chains"] = len(alerts)
+    print(f"[Flask] /stats returning: {stats}")
     return jsonify(stats)
 
+
+@app.route('/chain/report', methods=['POST'])
+def chain_report():
+    """Generates an AI intelligence report for a specific chain lead."""
+    if not neo4j_driver:
+        return jsonify({"error": "Neo4j not connected"}), 500
+        
+    payload = request.json
+    shared_type = payload.get("shared_type")
+    shared_entity = payload.get("shared_entity")
+    
+    if not shared_type or not shared_entity:
+        return jsonify({"error": "Missing shared_type or shared_entity"}), 400
+        
+    try:
+        report = generate_chain_report(neo4j_driver, openai_client, shared_type, shared_entity)
+        return jsonify({"report": report})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/chain/chat', methods=['POST'])
+def chain_chat():
+    """Allows interactive chat with the AI Detective about a lead."""
+    if not neo4j_driver:
+        return jsonify({"error": "Neo4j not connected"}), 500
+        
+    payload = request.json
+    shared_type = payload.get("shared_type")
+    shared_entity = payload.get("shared_entity")
+    user_message = payload.get("message")
+    chat_history = payload.get("history", [])
+    
+    if not shared_type or not shared_entity or not user_message:
+        return jsonify({"error": "Missing required fields"}), 400
+        
+    try:
+        reply = chat_with_lead(neo4j_driver, openai_client, shared_type, shared_entity, chat_history, user_message)
+        return jsonify({"reply": reply})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     print("[STARTING] Starting Python AI Pipeline on port 5000...")

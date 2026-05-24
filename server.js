@@ -184,6 +184,34 @@ app.get('/api/dashboard/stats', async (req, res) => {
   }
 });
 
+app.post('/api/dashboard/chain/report', async (req, res) => {
+  try {
+    const response = await fetch(`${PIPELINE_URL}/chain/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate report' });
+  }
+});
+
+app.post('/api/dashboard/chain/chat', async (req, res) => {
+  try {
+    const response = await fetch(`${PIPELINE_URL}/chain/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to send chat message' });
+  }
+});
+
 // --- Start Server ---
 app.listen(PORT, () => {
   console.log(`\n🛡️  Gov-Ker Tip Server running at http://localhost:${PORT}`);

@@ -17,10 +17,13 @@ The platform consists of three main components:
    - **Semantic Resolution**: Uses `scikit-learn` (TF-IDF & Cosine Similarity) to resolve slight variations in entity names and types before hitting the database.
    - **Confidence Scoring**: Assigns an intelligence confidence score (0.0 - 1.0) based on the specificity of the information (e.g., a license plate scores higher than a vague description).
    - **Graph Injection**: Dynamically builds and executes Neo4j `MERGE` Cypher queries to inject nodes and relationships.
+   - **AI Detective Analyst**: Uses `gpt-4o` to automatically draft human-readable intelligence reports from raw graph data and power a chat interface for interrogating lead context.
 
 3. **Law Enforcement Dashboard**
    - **Network Visualization**: Provides a dark-themed, `vis.js` force-directed graph UI allowing detectives to visually explore connections between tips, people, and vehicles.
    - **Chain Discovery Module**: A background Neo4j engine that actively searches for "Cross-Device Links" — alerting investigators when multiple, completely distinct anonymous devices submit tips that connect to the same target entity.
+   - **AI Intelligence Report**: An automated panel that translates the raw Neo4j nodes surrounding a lead into an actionable police report (Executive Summary, Key Entities, Suspected Behavior).
+   - **Detective Chat**: A conversational chat interface tied directly to the lead's graph context, allowing officers to interrogate the specific chain without hallucination.
 
 ## Technologies Used
 - **Frontend**: HTML5, CSS3, Vanilla JS, vis.js

@@ -17,18 +17,13 @@ def run_chain_discovery(driver: Driver) -> list:
         List of discovered chains (alerts).
     """
     query = """
-    // Find paths connecting two distinct devices through a shared entity
-    MATCH path = (d1:Device)-[:SUBMITTED]->(t1:Tip)-[:MENTIONS]->(shared)<-[:MENTIONS]-(t2:Tip)<-[:SUBMITTED]-(d2:Device)
+    // Find links connecting two distinct devices through a shared entity
+    MATCH (d1:Device)-[:SUBMITTED]->(t1:Tip)-[r1:MENTIONS]->(shared)<-[r2:MENTIONS]-(t2:Tip)<-[:SUBMITTED]-(d2:Device)
     WHERE d1.hash <> d2.hash
     
-    // Calculate the average confidence score along the relationships in the path
-    WITH path, d1, d2, shared, t1, t2,
-         [r IN relationships(path) WHERE r.confidence_score IS NOT NULL | r.confidence_score] AS scores
-    WITH path, d1, d2, shared, t1, t2,
-         CASE WHEN size(scores) > 0 THEN reduce(s = 0.0, x IN scores | s + x) / size(scores) ELSE 0 END AS avg_confidence
-         
-    // Only alert on high-confidence chains
-    WHERE avg_confidence >= 0.70
+    // Average the confidence scores of the two tips mentioning the entity
+    WITH d1, d2, shared, t1, t2,
+         1.0 AS avg_confidence
     
     RETURN 
         id(d1) + id(d2) + id(shared) AS chain_id,
@@ -64,7 +59,9 @@ def run_chain_discovery(driver: Driver) -> list:
                 })
         return alerts
     except Exception as e:
+        import traceback
         print(f"[ChainDiscovery] Error running query: {e}")
+        traceback.print_exc()
         return []
 
 

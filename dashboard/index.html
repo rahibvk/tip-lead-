@@ -86,7 +86,7 @@
       <div class="graph-container">
         <div id="networkGraph" class="network-graph"></div>
         
-        <!-- Node Detail Panel (Hidden by default) -->
+        <!-- Node Detail Panel -->
         <div class="detail-panel" id="detailPanel">
           <div class="detail-header">
             <h3 id="detailTitle">Node Details</h3>
@@ -96,6 +96,45 @@
             <!-- Dynamic content -->
           </div>
         </div>
+
+        <!-- AI Analyst Panel -->
+        <div class="ai-panel" id="aiPanel">
+          <div class="ai-header">
+            <div class="ai-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+              </svg>
+              AI Analyst
+            </div>
+            <button class="btn-close" id="btnCloseAI">✕</button>
+          </div>
+          
+          <div class="ai-tabs">
+            <button class="ai-tab active" id="tabReport">Intelligence Report</button>
+            <button class="ai-tab" id="tabChat">Detective Chat</button>
+          </div>
+
+          <!-- Report View -->
+          <div class="ai-view active" id="viewReport">
+            <div class="report-content" id="reportContent">
+              <div class="loading-pulse">Generating comprehensive intelligence report...</div>
+            </div>
+          </div>
+
+          <!-- Chat View -->
+          <div class="ai-view" id="viewChat">
+            <div class="chat-messages" id="chatMessages">
+              <div class="chat-message ai-message">
+                Hello Detective. I have analyzed the graph for this lead. What would you like to know?
+              </div>
+            </div>
+            <div class="chat-input-area">
+              <input type="text" id="chatInput" placeholder="Ask about this lead..." />
+              <button id="btnSendChat" class="btn btn-primary">Send</button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </main>

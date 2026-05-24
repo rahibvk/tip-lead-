@@ -16,6 +16,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const detailContent = document.getElementById('detailContent');
   const btnCloseDetail = document.getElementById('btnCloseDetail');
 
+  // AI Panel Elements
+  const aiPanel = document.getElementById('aiPanel');
+  const btnCloseAI = document.getElementById('btnCloseAI');
+  const tabReport = document.getElementById('tabReport');
+  const tabChat = document.getElementById('tabChat');
+  const viewReport = document.getElementById('viewReport');
+  const viewChat = document.getElementById('viewChat');
+  const reportContent = document.getElementById('reportContent');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const btnSendChat = document.getElementById('btnSendChat');
+
+  let currentLead = null; // { shared_type, shared_entity }
+  let currentChatHistory = [];
+
   // Vis.js Network instance
   let network = null;
   let nodes = new vis.DataSet([]);
@@ -207,6 +222,14 @@ document.addEventListener('DOMContentLoaded', () => {
         card.classList.add('selected');
         // Load graph
         loadGraphForTip(alert.tip1_id);
+        
+        // Load AI Report
+        currentLead = {
+          shared_type: alert.shared_type,
+          shared_entity: alert.shared_entity
+        };
+        openAIPanel();
+        fetchAIReport(currentLead);
       });
 
       alertList.appendChild(card);
@@ -258,6 +281,125 @@ document.addEventListener('DOMContentLoaded', () => {
   function hideNodeDetails() {
     detailPanel.classList.remove('visible');
   }
+
+  // --- AI Panel Logic ---
+  function openAIPanel() {
+    hideNodeDetails();
+    aiPanel.classList.add('visible');
+    tabReport.click(); // Default to report tab
+  }
+
+  function hideAIPanel() {
+    aiPanel.classList.remove('visible');
+    currentLead = null;
+  }
+
+  tabReport.addEventListener('click', () => {
+    tabReport.classList.add('active');
+    tabChat.classList.remove('active');
+    viewReport.classList.add('active');
+    viewChat.classList.remove('active');
+  });
+
+  tabChat.addEventListener('click', () => {
+    tabChat.classList.add('active');
+    tabReport.classList.remove('active');
+    viewChat.classList.add('active');
+    viewReport.classList.remove('active');
+  });
+
+  btnCloseAI.addEventListener('click', hideAIPanel);
+
+  async function fetchAIReport(lead) {
+    reportContent.innerHTML = '<div class="loading-pulse">Generating comprehensive intelligence report...</div>';
+    currentChatHistory = [];
+    chatMessages.innerHTML = `
+      <div class="chat-message ai-message">
+        Hello Detective. I have analyzed the graph for this lead. What would you like to know?
+      </div>
+    `;
+
+    try {
+      const res = await fetch('/api/dashboard/chain/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lead)
+      });
+      const data = await res.json();
+      if (data.report) {
+        // Simple markdown parsing for the report
+        let html = data.report
+          .replace(/### (.*)/g, '<h3>$1</h3>')
+          .replace(/## (.*)/g, '<h2>$1</h2>')
+          .replace(/# (.*)/g, '<h1>$1</h1>')
+          .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
+          .replace(/\\n/g, '<br>');
+        reportContent.innerHTML = html;
+      } else {
+        reportContent.innerHTML = '<p style="color:var(--accent-red)">Error generating report.</p>';
+      }
+    } catch (e) {
+      reportContent.innerHTML = '<p style="color:var(--accent-red)">Failed to connect to AI server.</p>';
+    }
+  }
+
+  async function sendChatMessage() {
+    const text = chatInput.value.trim();
+    if (!text || !currentLead) return;
+
+    // Add user message to UI
+    appendChatMessage('user', text);
+    chatInput.value = '';
+
+    // Add loading indicator
+    const loadingId = 'loading-' + Date.now();
+    appendChatMessage('ai', 'Thinking...', loadingId);
+
+    try {
+      const payload = {
+        shared_type: currentLead.shared_type,
+        shared_entity: currentLead.shared_entity,
+        message: text,
+        history: currentChatHistory
+      };
+
+      const res = await fetch('/api/dashboard/chain/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      
+      // Remove loading indicator
+      document.getElementById(loadingId)?.remove();
+
+      if (data.reply) {
+        appendChatMessage('ai', data.reply);
+        currentChatHistory.push({ role: 'user', content: text });
+        currentChatHistory.push({ role: 'assistant', content: data.reply });
+      } else {
+        appendChatMessage('ai', 'Sorry, I encountered an error.');
+      }
+    } catch (e) {
+      document.getElementById(loadingId)?.remove();
+      appendChatMessage('ai', 'Connection failed.');
+    }
+  }
+
+  function appendChatMessage(role, text, id = null) {
+    const div = document.createElement('div');
+    div.className = \`chat-message \${role === 'ai' ? 'ai-message' : 'user-message'}\`;
+    if (id) div.id = id;
+    div.textContent = text;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  btnSendChat.addEventListener('click', sendChatMessage);
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+  });
 
   // --- Events ---
   btnRefresh.addEventListener('click', () => {
