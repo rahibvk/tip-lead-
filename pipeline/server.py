@@ -24,6 +24,10 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Initialize Neo4j Driver
 neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+# Fix SSL cert issues on Windows/Aura by using ssc (self-signed certs allowed)
+if neo4j_uri.startswith("neo4j+s://"):
+    neo4j_uri = neo4j_uri.replace("neo4j+s://", "neo4j+ssc://", 1)
+
 neo4j_user = os.getenv("NEO4J_USER", "neo4j")
 neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
 

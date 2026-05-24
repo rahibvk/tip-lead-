@@ -31,7 +31,7 @@ def run_chain_discovery(driver: Driver) -> list:
     WHERE avg_confidence >= 0.70
     
     RETURN 
-        id(path) AS chain_id,
+        id(d1) + id(d2) + id(shared) AS chain_id,
         labels(shared)[0] AS shared_type,
         shared.name AS shared_name,
         shared.plate AS shared_plate,

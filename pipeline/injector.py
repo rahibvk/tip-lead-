@@ -33,6 +33,16 @@ def inject_to_neo4j(payload: dict, processed_data: dict, driver: Driver) -> dict
             attrs = entity.get("attributes", {})
             name = attrs.get("name") or attrs.get("plate") or str(attrs.get("id", len(entity_name_map)))
             
+            # Anti-Pollution: If the identifier is generic, make it unique to this tip
+            if str(name).strip().lower() in ["unknown", "unidentified", "anonymous", "none", "n/a", "", "null"]:
+                name = f"Unknown_{payload['tip_id'][-6:]}_{len(entity_name_map)}"
+                if "name" in attrs:
+                    attrs["name"] = name
+                elif "plate" in attrs:
+                    attrs["plate"] = name
+                else:
+                    attrs["name"] = name
+                    
             if name:
                 session.execute_write(_merge_dynamic_entity, payload["tip_id"], label, attrs)
                 entity_name_map[str(name).lower()] = {"label": label, "attrs": attrs}
@@ -136,7 +146,7 @@ def _merge_dynamic_entity(tx, tip_id: str, label: str, attrs: dict):
     if not attrs:
          return
          
-    merge_val = attrs.get(merge_key, "Unknown")
+    merge_val = str(attrs.get(merge_key, "Unknown"))
     
     # Build SET clause for remaining attributes dynamically
     set_clauses = []
@@ -180,7 +190,7 @@ def _merge_dynamic_relationship(tx, from_data: dict, to_data: dict, rel_type: st
         if k in from_data["attrs"]:
             from_key = k
             break
-    from_val = from_data["attrs"].get(from_key, "Unknown")
+    from_val = str(from_data["attrs"].get(from_key, "Unknown"))
             
     # Determine the primary key used to MERGE the target node
     to_key = "name"
